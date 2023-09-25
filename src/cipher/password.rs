@@ -2,7 +2,7 @@ use rand::prelude::*;
 
 const PASSWORD_LENGTH: u32 = 256;
 
-type Password = [u8; 256];
+pub type Password = [u8; 256];
 pub type EncodePassword = Password;
 pub type DecodePassword = Password;
 

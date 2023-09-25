@@ -1,4 +1,4 @@
-mod password;
+pub mod password;
 
 pub fn init() {
     let (encoded_password, decoded_password) = password::gen_passwd();
@@ -23,9 +23,19 @@ pub struct Cipher {
 }
 
 impl Cipher {
+    pub fn new_symmetric(encode_password: password::Password) -> Self {
+        let mut decode_password:[u8;256] = [0;256];
+        for i in 0..256usize {
+            let v = encode_password[i];
+            decode_password[v as usize] = i as u8;
+        }
+        Self { encode_password, decode_password }
+    }
+
     pub fn new(encode_password: password::EncodePassword, decode_password: password::DecodePassword) -> Self {
         Self { encode_password, decode_password }
     }
+
     pub fn encode(&self, plain_bytes: &[u8]) -> Vec<u8> {
         let n = plain_bytes.len();
         let result: Vec<u8> = plain_bytes.iter()
