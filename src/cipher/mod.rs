@@ -17,9 +17,21 @@ pub fn init() {
     println!("decoded_text = {decoded_text}")
 }
 
+#[derive(Copy)]
 pub struct Cipher {
     encode_password: password::EncodePassword,
     decode_password: password::DecodePassword,
+}
+
+impl Clone for Cipher{
+    fn clone(&self) -> Self {
+        // Self{
+        //     encode_password: *&self.encode_password,
+        //     decode_password: *&self.decode_password,
+        // }
+
+        *self
+    }
 }
 
 impl Cipher {

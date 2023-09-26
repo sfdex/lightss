@@ -1,7 +1,7 @@
 mod cipher;
 mod secure_socket;
-mod local;
-mod server;
+pub mod local;
+pub mod server;
 
 pub fn init(){
     cipher::init()
