@@ -22,6 +22,7 @@ impl LssLocal {
         loop {
             let r = Arc::clone(&en);
             let (stream, addr) = listener.accept().unwrap();
+            println!("new incoming: {:?}",addr);
             thread::spawn(move|| {
                 let s = r.lock().unwrap().socket;
                 Self::handle_conn(s, stream);

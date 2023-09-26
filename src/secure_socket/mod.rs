@@ -3,7 +3,6 @@ use std::io::Result;
 use std::net::{SocketAddrV4, TcpStream};
 use std::str::FromStr;
 use crate::cipher::Cipher;
-use crate::cipher::password::EncodePassword;
 
 const BUFF_SIZE: usize = 1024;
 
@@ -30,21 +29,31 @@ impl SecureSocket {
         Self { cipher, listen_addr, remote_addr: SocketAddrV4::from_str("0.0.0.0:1080").unwrap() }
     }
 
+    pub fn encrypt(&self, bytes: &mut [u8]) {
+        self.cipher.encode(bytes);
+    }
+
     pub fn encrypt_outgoing(&self, plain_stream: &mut TcpStream, encrypted_stream: &mut TcpStream) -> Result<()> {
         let mut buf = vec![0; BUFF_SIZE];
         loop {
             let r = plain_stream.read(&mut buf);
             let mut bytes = match r {
                 Ok(0) => { return Ok(()); }
-                Ok(n) => { &buf[..n] }
+                Ok(n) => { (&buf[..n]).to_vec() }
                 Err(err) => { return Err(err); }
             };
 
-            self.cipher.encode(&mut bytes);
+            self.encrypt(&mut bytes);
+
+            // println!("Encrypt: {:?}", bytes);
             if let Err(err) = encrypted_stream.write(&mut bytes) {
                 return Err(err);
             }
         }
+    }
+
+    pub fn decrypt(&self, bytes: &mut [u8]) {
+        self.cipher.decode(bytes);
     }
 
     pub fn decrypt_incoming(&self, encrypted_stream: &mut TcpStream, plain_stream: &mut TcpStream) -> Result<()> {
@@ -53,11 +62,14 @@ impl SecureSocket {
             let r = encrypted_stream.read(&mut buf);
             let mut bytes = match r {
                 Ok(0) => { return Ok(()); }
-                Ok(n) => { &buf[..n] }
+                Ok(n) => { (&buf[..n]).to_vec() }
                 Err(err) => { return Err(err); }
             };
-            self.cipher.decode(&mut bytes);
-            if let Err(err) = plain_stream.write_all(bytes) {
+
+            self.decrypt(&mut bytes);
+            // println!("Decrypt: {:?}", bytes);
+
+            if let Err(err) = plain_stream.write_all(&bytes) {
                 return Err(err);
             }
         }

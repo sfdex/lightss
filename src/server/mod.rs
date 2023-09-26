@@ -23,6 +23,7 @@ impl LssServer {
         loop {
             let r = Arc::clone(&en);
             let (stream, addr) = listener.accept().unwrap();
+            println!("New incoming: {:?}", addr);
             thread::spawn(move || {
                 let s = r.lock().unwrap().socket;
                 Self::handle_conn(s, stream);
@@ -35,6 +36,7 @@ impl LssServer {
     fn handle_conn(socket: SecureSocket, mut encrypted_stream: TcpStream) {
         let mut buf = [0u8; 3];
         encrypted_stream.read_exact(&mut buf).unwrap();
+        socket.decrypt(&mut buf);
 
         // Ver
         if buf[0] != 5 {
@@ -42,12 +44,15 @@ impl LssServer {
             return;
         }
 
-        let handshake_resp = [5, 0];
+        let mut handshake_resp = [5, 0];
+        socket.encrypt(&mut handshake_resp);
         encrypted_stream.write_all(handshake_resp.as_slice()).unwrap();
 
 
         let mut buf = vec![0; 1024];
-        encrypted_stream.read_exact(&mut buf).unwrap();
+        let n = encrypted_stream.read(&mut buf).unwrap();
+        let mut bytes = (&buf[..n]).to_vec();
+        socket.decrypt(&mut bytes);
 
         // Ver
         if buf[0] != 5 {
@@ -70,15 +75,18 @@ impl LssServer {
         let mut pbo = [0u8; 2];
         pbo.copy_from_slice(&buf[8..10]);
         let port = u16::from_be_bytes(pbo);
-        let ip = SocketAddrV4::new(ip, port);
+        let addr = SocketAddrV4::new(ip, port);
 
-        let request_resp = [5, 0, 0, 1, buf[4], buf[5], buf[6], buf[7], buf[8], buf[9]];
+        println!("Dst: {:?}", addr);
+
+        let mut request_resp = [5, 0, 0, 1, buf[4], buf[5], buf[6], buf[7], buf[8], buf[9]];
+        socket.encrypt(&mut request_resp);
         encrypted_stream.write_all(request_resp.as_slice()).unwrap();
 
 
         let mut encrypted_clone = encrypted_stream.try_clone().unwrap();
 
-        let mut remote_stream = TcpStream::connect(ip).expect(&format!("Dial remote error: {:?}", ip));
+        let mut remote_stream = TcpStream::connect(addr).expect(&format!("Dial remote error: {:?}", addr));
         let mut remote_clone = remote_stream.try_clone().unwrap();
 
         thread::spawn(move || {
